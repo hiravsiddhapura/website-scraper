@@ -5,7 +5,8 @@
       "root": "client"
     },
     "app": {
-      "root": "."
+      "root": ".",
+      "entrypoint": "api/index.js"
     }
   },
   "rewrites": [
