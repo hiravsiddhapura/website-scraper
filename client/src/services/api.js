@@ -1,7 +1,8 @@
 /**
  * Centralized API service for communicating with the Node.js backend
+ * Supports dynamic production API URL via VITE_API_URL environment variable
  */
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 /**
  * Fetch scraped products with filtering, search and pagination
@@ -18,7 +19,7 @@ export const getProducts = async (filters = {}) => {
   const response = await fetch(`${API_BASE_URL}/scraper/products?${query.toString()}`);
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.message || 'Failed to fetch products');
+    throw new Error(err.message || `Failed to fetch products (HTTP ${response.status})`);
   }
   return response.json();
 };
@@ -29,7 +30,8 @@ export const getProducts = async (filters = {}) => {
 export const getStats = async () => {
   const response = await fetch(`${API_BASE_URL}/scraper/stats`);
   if (!response.ok) {
-    throw new Error('Failed to fetch statistics');
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || `Failed to fetch statistics (HTTP ${response.status})`);
   }
   return response.json();
 };
@@ -46,7 +48,7 @@ export const getStatus = async () => {
 };
 
 /**
- * Trigger scraper job
+ * Trigger dynamic scraper job
  */
 export const startScraper = async (options = {}) => {
   const response = await fetch(`${API_BASE_URL}/scraper/start`, {
@@ -57,9 +59,9 @@ export const startScraper = async (options = {}) => {
     body: JSON.stringify(options)
   });
 
-  const data = await response.json();
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.message || 'Scraper job failed to start');
+    throw new Error(data.message || `Scraper job failed (HTTP ${response.status})`);
   }
   return data;
 };
@@ -72,9 +74,9 @@ export const deleteProduct = async (id) => {
     method: 'DELETE'
   });
 
-  const data = await response.json();
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.message || 'Failed to delete product');
+    throw new Error(data.message || `Failed to delete product (HTTP ${response.status})`);
   }
   return data;
 };
