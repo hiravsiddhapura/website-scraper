@@ -1,0 +1,200 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import Navbar from './components/Navbar';
+import StatsDashboard from './components/StatsDashboard';
+import ScraperPanel from './components/ScraperPanel';
+import FilterBar from './components/FilterBar';
+import ProductCard from './components/ProductCard';
+import Pagination from './components/Pagination';
+import { getProducts, getStats, startScraper, deleteProduct } from './services/api';
+import { Loader2, Inbox } from 'lucide-react';
+
+export default function App() {
+  const [products, setProducts] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [availableWebsites, setAvailableWebsites] = useState([]);
+  const [isScraping, setIsScraping] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [isError, setIsError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Pagination & Filtering state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+
+  const [filters, setFilters] = useState({
+    search: '',
+    sourceDomain: '',
+    rating: '',
+    inStock: '',
+    sortBy: 'createdAt',
+    order: 'desc'
+  });
+
+  // Load products from backend
+  const loadProducts = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const data = await getProducts({
+        page: currentPage,
+        limit: 12,
+        ...filters
+      });
+      setProducts(data.products || []);
+      setTotalPages(data.totalPages || 1);
+      setTotalProducts(data.total || 0);
+      if (data.availableWebsites) {
+        setAvailableWebsites(data.availableWebsites);
+      }
+    } catch (err) {
+      console.error('Failed to load products:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentPage, filters]);
+
+  // Load aggregate stats
+  const loadStats = useCallback(async () => {
+    try {
+      const data = await getStats();
+      if (data.success) {
+        setStats(data.stats);
+      }
+    } catch (err) {
+      console.error('Failed to load stats:', err);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    loadProducts();
+    loadStats();
+  }, [loadProducts, loadStats]);
+
+  // Handle filter changes (resets to page 1)
+  const handleFilterChange = (key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setFilters({
+      search: '',
+      sourceDomain: '',
+      rating: '',
+      inStock: '',
+      sortBy: 'createdAt',
+      order: 'desc'
+    });
+    setCurrentPage(1);
+  };
+
+  // Handle Triggering Dynamic Scraper Job
+  const handleStartScrape = async (options) => {
+    try {
+      setIsScraping(true);
+      setIsError(false);
+      setStatusMessage(`Scraping job started for ${options.url}. Extracting data & persisting to MongoDB...`);
+
+      const response = await startScraper(options);
+      const summary = response.data;
+      setStatusMessage(
+        `Scraping finished for ${summary.website}! Scraped ${summary.pagesScraped} page(s), collected ${summary.totalProductsFound} items (${summary.newInserted} new, ${summary.updatedExisting} updated).`
+      );
+
+      await loadProducts();
+      await loadStats();
+    } catch (err) {
+      setIsError(true);
+      setStatusMessage(err.message || 'Scraper error occurred');
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
+  // Handle Deleting Product
+  const handleDeleteProduct = async (id, title) => {
+    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) {
+      return;
+    }
+
+    try {
+      await deleteProduct(id);
+      setProducts((prev) => prev.filter((p) => p._id !== id));
+      loadStats();
+    } catch (err) {
+      alert(`Error deleting product: ${err.message}`);
+    }
+  };
+
+  return (
+    <div className="app-layout">
+      <Navbar
+        isScraping={isScraping}
+        onRefresh={() => {
+          loadProducts();
+          loadStats();
+        }}
+      />
+
+      <main className="main-content">
+        {/* Statistics Metric Cards */}
+        <StatsDashboard stats={stats} />
+
+        {/* Dynamic Scraper Trigger Controls with Presets */}
+        <ScraperPanel
+          isScraping={isScraping}
+          onStartScrape={handleStartScrape}
+          statusMessage={statusMessage}
+          isError={isError}
+        />
+
+        {/* Search, Website Filter, Sort and Filtering Controls */}
+        <FilterBar
+          filters={filters}
+          availableWebsites={availableWebsites}
+          onFilterChange={handleFilterChange}
+          onReset={handleResetFilters}
+        />
+
+        {/* Products Grid */}
+        <section className="products-section">
+          {isLoading ? (
+            <div className="loading-state">
+              <Loader2 size={36} className="animate-spin text-primary" />
+              <p>Loading items from MongoDB...</p>
+            </div>
+          ) : products.length === 0 ? (
+            <div className="empty-state">
+              <Inbox size={48} className="empty-icon" />
+              <h3>No Items Found</h3>
+              <p>
+                {filters.search || filters.sourceDomain || filters.rating || filters.inStock
+                  ? 'No items match your active search filters.'
+                  : 'Your database is currently empty. Click "Start Scraping" above to collect items!'}
+              </p>
+            </div>
+          ) : (
+            <div className="products-grid">
+              {products.map((product) => (
+                <ProductCard
+                  key={product._id}
+                  product={product}
+                  onDelete={handleDeleteProduct}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Pagination Navigation */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalProducts}
+          onPageChange={(page) => setCurrentPage(page)}
+        />
+      </main>
+    </div>
+  );
+}
