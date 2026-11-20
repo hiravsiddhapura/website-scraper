@@ -16,6 +16,11 @@ import {
 
 const PRESETS = [
   {
+    name: 'Amazon Earbuds',
+    url: 'https://www.amazon.in/s?k=earbuds',
+    mode: 'auto'
+  },
+  {
     name: 'boAt Lifestyle Store',
     url: 'https://www.boat-lifestyle.com/',
     mode: 'auto'

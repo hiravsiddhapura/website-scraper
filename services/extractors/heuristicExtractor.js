@@ -9,43 +9,79 @@ const {
 
 const PRICE_REGEX = /(?:[\$£€₹¥]|Rs\.?|CAD|USD|GBP|EUR)\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/i;
 
+const IGNORED_TITLE_WORDS = [
+  'sponsored',
+  'advertisement',
+  'let us know',
+  'view details',
+  'add to cart',
+  'quick view',
+  'learn more',
+  'buy now',
+  'see more'
+];
+
+const isInvalidTitle = (text) => {
+  if (!text || text.length < 3) return true;
+  const lower = text.toLowerCase().trim();
+  const alphaOnly = lower.replace(/[^a-z]/g, '');
+
+  if (
+    alphaOnly.includes('sponsored') ||
+    alphaOnly.includes('advertisement') ||
+    alphaOnly === 'letusknow' ||
+    alphaOnly === 'addtocart' ||
+    alphaOnly === 'quickview' ||
+    alphaOnly === 'buynow'
+  ) {
+    return true;
+  }
+
+  return (
+    PRICE_REGEX.test(text) ||
+    IGNORED_TITLE_WORDS.some((word) => lower === word || lower.startsWith(word + ' '))
+  );
+};
+
 /**
  * Extracts product title from an element with clear hierarchical priority
  * Handles headings, specialized title classes, and anchor tags
  */
 const extractCardTitle = ($, el) => {
   // 1. Explicit title classes on links or inside elements
-  let titleEl = $(el)
+  const titled = $(el)
     .find('a[class*="title"], [class*="title"] a, a[class*="name"], [class*="name"] a')
-    .first();
-  if (titleEl.length && titleEl.text().trim()) {
+    .filter((_, t) => !isInvalidTitle($(t).text()));
+  if (titled.length) {
+    const titleEl = titled.first();
     return { title: cleanText(titleEl.attr('title') || titleEl.text()), el: titleEl };
   }
 
   // 2. Heading links (h1 a, h2 a, h3 a, h4 a, h5 a)
-  titleEl = $(el).find('h1 a, h2 a, h3 a, h4 a, h5 a').first();
-  if (titleEl.length && titleEl.text().trim()) {
+  const headingLinks = $(el)
+    .find('h1 a, h2 a, h3 a, h4 a, h5 a')
+    .filter((_, h) => !isInvalidTitle($(h).text()));
+  if (headingLinks.length) {
+    const titleEl = headingLinks.first();
     return { title: cleanText(titleEl.attr('title') || titleEl.text()), el: titleEl };
   }
 
-  // 3. Headings that are NOT prices
+  // 3. Headings that are NOT prices and NOT invalid
   const headings = $(el)
     .find('h1, h2, h3, h4, h5')
-    .filter((_, h) => {
-      const text = $(h).text().trim();
-      return !text.match(/^[\$£€₹¥]/) && !$(h).attr('class')?.includes('price');
-    });
+    .filter((_, h) => !isInvalidTitle($(h).text()) && !$(h).attr('class')?.includes('price'));
   if (headings.length) {
-    titleEl = headings.first();
+    const titleEl = headings.first();
     return { title: cleanText(titleEl.attr('title') || titleEl.text()), el: titleEl };
   }
 
   // 4. Product links
-  titleEl = $(el)
+  const productLinks = $(el)
     .find('a[href*="/product/"], a[href*="/products/"], a[href*="/p/"]')
     .not(':has(img)')
-    .first();
-  if (titleEl.length && titleEl.text().trim()) {
+    .filter((_, a) => !isInvalidTitle($(a).text()));
+  if (productLinks.length) {
+    const titleEl = productLinks.first();
     return { title: cleanText(titleEl.attr('title') || titleEl.text()), el: titleEl };
   }
 
@@ -53,10 +89,7 @@ const extractCardTitle = ($, el) => {
   const anyLink = $(el)
     .find('a')
     .not(':has(img)')
-    .filter((_, a) => {
-      const text = $(a).text().trim();
-      return text.length > 3 && !text.match(/^[\$£€₹¥]/);
-    })
+    .filter((_, a) => !isInvalidTitle($(a).text()))
     .first();
   if (anyLink.length) {
     return { title: cleanText(anyLink.attr('title') || anyLink.text()), el: anyLink };
@@ -72,7 +105,7 @@ const extractCardTitle = ($, el) => {
 const extractCardImage = ($, el, currentUrl) => {
   let imgEl = $(el)
     .find(
-      'img[class*="primary"], [class*="image-wrapper"] img, [class*="product-image"] img, .aspect-ratio img, .thumbnail img'
+      'img.s-image, img[class*="primary"], [class*="image-wrapper"] img, [class*="product-image"] img, .aspect-ratio img, .thumbnail img'
     )
     .first();
 
@@ -120,7 +153,8 @@ const extractCardImage = ($, el, currentUrl) => {
 const extractCardRating = ($, el) => {
   const dataRating =
     $(el).find('[data-rating]').attr('data-rating') ||
-    $(el).find('[aria-label*="star"], [aria-label*="out of"]').attr('aria-label');
+    $(el).find('[aria-label*="star"], [aria-label*="out of"]').attr('aria-label') ||
+    $(el).find('.a-icon-alt').first().text();
   if (dataRating) {
     return parseRating(dataRating);
   }
@@ -137,6 +171,7 @@ const extractCardRating = ($, el) => {
 const deriveBrand = (title, domain) => {
   if (domain.includes('boat-lifestyle')) return 'boAt';
   if (domain.includes('books.toscrape')) return 'Books to Scrape';
+  if (domain.includes('webscraper.io')) return 'WebScraper.io';
   if (domain.includes('amazon')) return 'Amazon';
   if (domain.includes('shopify')) return 'Shopify';
 
@@ -295,6 +330,8 @@ const extractCatalogHeuristic = ($, currentUrl) => {
   const seenUrls = new Set();
 
   const candidateSelectors = [
+    'div[data-component-type="s-search-result"]',
+    '[data-asin]:has(img):has(a)',
     'article.product_pod',
     '.product-item',
     '.product-card',
@@ -334,31 +371,71 @@ const extractCatalogHeuristic = ($, currentUrl) => {
     }
   }
 
-  // Fallback: If no predefined card class matches, look for repeating elements linking to products
+  // Adaptive Heuristic Discovery: If no predefined classes match, dynamically discover
+  // repeating containers across ANY e-commerce platform that combine a price, an image, and a link
   if (selectedElements.length < 2) {
-    const productAnchors = $('a[href*="/product/"], a[href*="/products/"], a[href*="/p/"]').filter(
-      (_, a) => {
-        const href = $(a).attr('href') || '';
-        return !href.includes('#') && !href.includes('cart');
-      }
-    );
+    const discoveredCards = [];
+    const seenCardElements = new Set();
 
-    if (productAnchors.length >= 2) {
-      // Find the closest card container (div, li, or article) for each anchor
-      const discoveredCards = [];
-      const seenCardElements = new Set();
+    // 1. Find price candidate nodes
+    $('*').each((_, el) => {
+      if ($(el).children().length <= 2) {
+        const text = $(el).text().trim();
+        if (PRICE_REGEX.test(text) && text.length < 50) {
+          // Climb up to find the closest card container with an image and link
+          let current = $(el).parent();
+          let depth = 0;
+          let bestCard = null;
+
+          while (
+            current.length &&
+            depth < 6 &&
+            current[0].tagName !== 'BODY' &&
+            current[0].tagName !== 'HTML'
+          ) {
+            const hasImg = current.find('img').length > 0;
+            const hasLink = current.find('a').length > 0;
+            if (hasImg && hasLink) {
+              bestCard = current[0];
+              // Stop climbing if container is a card (not an entire page section with > 20 links)
+              if (current.find('a').length <= 20) {
+                break;
+              }
+            }
+            current = current.parent();
+            depth++;
+          }
+
+          if (bestCard && !seenCardElements.has(bestCard)) {
+            seenCardElements.add(bestCard);
+            discoveredCards.push(bestCard);
+          }
+        }
+      }
+    });
+
+    // 2. Also check anchors linking to products
+    if (discoveredCards.length < 2) {
+      const productAnchors = $('a[href*="/product/"], a[href*="/products/"], a[href*="/p/"]').filter(
+        (_, a) => {
+          const href = $(a).attr('href') || '';
+          return !href.includes('#') && !href.includes('cart');
+        }
+      );
 
       productAnchors.each((_, anchor) => {
-        const parentCard = $(anchor).closest('article, li, [class*="item"], [class*="col"], div:has(img)');
+        const parentCard = $(anchor).closest(
+          'article, li, [class*="item"], [class*="col"], div:has(img)'
+        );
         if (parentCard.length && !seenCardElements.has(parentCard[0])) {
           seenCardElements.add(parentCard[0]);
           discoveredCards.push(parentCard[0]);
         }
       });
+    }
 
-      if (discoveredCards.length >= 2) {
-        selectedElements = $(discoveredCards);
-      }
+    if (discoveredCards.length >= 2) {
+      selectedElements = $(discoveredCards);
     }
   }
 
@@ -367,13 +444,13 @@ const extractCatalogHeuristic = ($, currentUrl) => {
 
     const relativeUrl =
       titleEl.attr('href') ||
-      $(el).find('a[href*="/product/"], a[href*="/products/"], a[href*="/p/"]').first().attr('href') ||
+      $(el).find('a.a-link-normal[href*="/dp/"], h2 a, a[href*="/product/"], a[href*="/products/"], a[href*="/p/"]').first().attr('href') ||
       $(el).find('a').first().attr('href');
     const productUrl = resolveUrl(relativeUrl, currentUrl);
 
     // Extract price
     const priceText = cleanText(
-      $(el).find('.price_color, [class*="price"], .amount, [data-price], [itemprop="price"]').first().text()
+      $(el).find('.a-price .a-offscreen, .a-price-whole, .price_color, [class*="price"], .amount, [data-price], [itemprop="price"]').first().text()
     );
     const price = parsePrice(priceText);
     const currency = parseCurrency(priceText);

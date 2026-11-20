@@ -70,7 +70,7 @@ const detectPageType = ($, url) => {
 
   // If there are multiple product cards (>= 3), it's definitely a listing/catalog page
   const multiCardCount = $(
-    'article.product_pod, [class*="product-card"], [class*="product-item"], .thumbnail'
+    'article.product_pod, [class*="product-card"], [class*="product-item"], .thumbnail, div[data-component-type="s-search-result"], [data-asin]:has(img):has(a)'
   ).length;
   if (multiCardCount >= 3) {
     return 'listing';
