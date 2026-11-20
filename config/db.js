@@ -1,25 +1,37 @@
 const mongoose = require('mongoose');
-const dns = require('dns');
-
-// Ensure reliable DNS resolution for MongoDB Atlas SRV records on Windows
-try {
-  dns.setServers(['8.8.8.8', '1.1.1.1']);
-} catch {
-  // Ignore in environments where setting DNS is restricted
-}
 
 /**
  * Connect to MongoDB database using Mongoose
+ * Uses system native DNS resolver and gracefully falls back to local MongoDB
+ * if Cloud Atlas IP is not yet whitelisted locally
  */
 const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
+  const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/website_scraper';
 
+  try {
+    const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
     console.log(`🌿 MongoDB Connected: ${conn.connection.host}/${conn.connection.name}`);
+    return conn;
   } catch (error) {
-    console.error(`❌ MongoDB Connection Error: ${error.message}`);
-    // Do not crash serverless functions on cold start, but log error
-    if (process.env.NODE_ENV !== 'production') {
+    console.warn(`⚠️ Cloud MongoDB connection failed: ${error.message}`);
+
+    // If Atlas failed locally, fall back to local MongoDB instance
+    if (uri.includes('mongodb+srv') && process.env.NODE_ENV !== 'production') {
+      try {
+        console.log(`🔄 Attempting fallback to local MongoDB (mongodb://127.0.0.1:27017/website_scraper)...`);
+        const fallbackConn = await mongoose.connect('mongodb://127.0.0.1:27017/website_scraper', {
+          serverSelectionTimeoutMS: 3000
+        });
+        console.log(`🌿 Local MongoDB Connected: ${fallbackConn.connection.host}/${fallbackConn.connection.name}`);
+        return fallbackConn;
+      } catch (localErr) {
+        console.error(`❌ Local MongoDB Fallback Error: ${localErr.message}`);
+      }
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      console.error(`❌ Production DB Error: ${error.message}`);
+    } else {
       process.exit(1);
     }
   }

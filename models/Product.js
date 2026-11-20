@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
 /**
- * Dynamic Product Schema
- * Defines the structure for scraped products across multiple websites in MongoDB
+ * Universal Dynamic Product Schema
+ * Stores structured product data extracted from any arbitrary e-commerce website
  */
 const productSchema = new mongoose.Schema(
   {
@@ -18,7 +18,7 @@ const productSchema = new mongoose.Schema(
     },
     currency: {
       type: String,
-      default: '£',
+      default: '$',
       trim: true
     },
     availability: {
@@ -32,7 +32,7 @@ const productSchema = new mongoose.Schema(
     },
     imageUrl: {
       type: String,
-      default: 'https://placehold.co/300x400?text=No+Image',
+      default: 'https://placehold.co/400x500?text=No+Product+Image',
       trim: true
     },
     productUrl: {
@@ -53,11 +53,42 @@ const productSchema = new mongoose.Schema(
       default: 'General',
       trim: true
     },
+    brand: {
+      type: String,
+      default: 'Generic',
+      trim: true
+    },
+    description: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    sku: {
+      type: String,
+      default: '',
+      trim: true
+    },
     sourceDomain: {
       type: String,
-      default: 'books.toscrape.com',
+      required: true,
       index: true,
       trim: true
+    },
+    pageType: {
+      type: String,
+      enum: ['detail', 'listing'],
+      default: 'detail'
+    },
+    extractionSource: {
+      type: String,
+      enum: ['json-ld', 'opengraph', 'microdata', 'hydration', 'heuristic', 'profile'],
+      default: 'heuristic'
+    },
+    confidenceScore: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 80
     },
     scrapedAt: {
       type: Date,
@@ -69,8 +100,10 @@ const productSchema = new mongoose.Schema(
   }
 );
 
-// Create compound index for faster website-based and category-based queries
+// Compound indexes for fast multi-filter querying
 productSchema.index({ sourceDomain: 1, category: 1 });
+productSchema.index({ sourceDomain: 1, brand: 1 });
+productSchema.index({ pageType: 1 });
 
 const Product = mongoose.model('Product', productSchema);
 

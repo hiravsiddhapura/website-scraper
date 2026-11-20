@@ -1,10 +1,19 @@
 import React from 'react';
-import { Search, Globe, X } from 'lucide-react';
+import { Search, Globe, Tag, X, Layers, Cpu } from 'lucide-react';
 
-export default function FilterBar({ filters, availableWebsites = [], onFilterChange, onReset }) {
+export default function FilterBar({
+  filters,
+  availableWebsites = [],
+  availableBrands = [],
+  onFilterChange,
+  onReset
+}) {
   const hasActiveFilters =
     filters.search ||
     filters.sourceDomain ||
+    filters.brand ||
+    filters.pageType ||
+    filters.extractionSource ||
     filters.rating ||
     filters.inStock !== '' ||
     filters.sortBy !== 'createdAt';
@@ -15,15 +24,12 @@ export default function FilterBar({ filters, availableWebsites = [], onFilterCha
         <Search size={18} className="search-icon" />
         <input
           type="text"
-          placeholder="Search items by title..."
+          placeholder="Search items by title, brand, or description..."
           value={filters.search}
           onChange={(e) => onFilterChange('search', e.target.value)}
         />
         {filters.search && (
-          <button
-            className="clear-search-btn"
-            onClick={() => onFilterChange('search', '')}
-          >
+          <button className="clear-search-btn" onClick={() => onFilterChange('search', '')}>
             <X size={14} />
           </button>
         )}
@@ -37,15 +43,58 @@ export default function FilterBar({ filters, availableWebsites = [], onFilterCha
               value={filters.sourceDomain}
               onChange={(e) => onFilterChange('sourceDomain', e.target.value)}
             >
-              <option value="">All Websites</option>
+              <option value="">🌐 All Websites</option>
               {availableWebsites.map((domain) => (
                 <option key={domain} value={domain}>
-                  🌐 {domain}
+                  {domain}
                 </option>
               ))}
             </select>
           </div>
         )}
+
+        {/* Brand Filter */}
+        {availableBrands.length > 0 && (
+          <div className="filter-item">
+            <select
+              value={filters.brand}
+              onChange={(e) => onFilterChange('brand', e.target.value)}
+            >
+              <option value="">🏷️ All Brands</option>
+              {availableBrands.map((brand) => (
+                <option key={brand} value={brand}>
+                  {brand}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Page Type Filter (Detail vs Listing) */}
+        <div className="filter-item">
+          <select
+            value={filters.pageType}
+            onChange={(e) => onFilterChange('pageType', e.target.value)}
+          >
+            <option value="">📄 All Page Types</option>
+            <option value="detail">Single Product Pages</option>
+            <option value="listing">Catalog / Collection Items</option>
+          </select>
+        </div>
+
+        {/* Extraction Method Filter */}
+        <div className="filter-item">
+          <select
+            value={filters.extractionSource}
+            onChange={(e) => onFilterChange('extractionSource', e.target.value)}
+          >
+            <option value="">⚡ All Extraction Methods</option>
+            <option value="json-ld">Schema.org JSON-LD</option>
+            <option value="opengraph">OpenGraph Meta</option>
+            <option value="hydration">Framework Hydration</option>
+            <option value="heuristic">Heuristic DOM</option>
+          </select>
+        </div>
 
         {/* Rating Filter */}
         <div className="filter-item">
@@ -53,7 +102,7 @@ export default function FilterBar({ filters, availableWebsites = [], onFilterCha
             value={filters.rating}
             onChange={(e) => onFilterChange('rating', e.target.value)}
           >
-            <option value="">All Ratings</option>
+            <option value="">⭐ All Ratings</option>
             <option value="5">★★★★★ (5 Stars)</option>
             <option value="4">★★★★☆ (4 Stars)</option>
             <option value="3">★★★☆☆ (3 Stars)</option>
@@ -68,7 +117,7 @@ export default function FilterBar({ filters, availableWebsites = [], onFilterCha
             value={filters.inStock}
             onChange={(e) => onFilterChange('inStock', e.target.value)}
           >
-            <option value="">All Stock Status</option>
+            <option value="">📦 All Stock</option>
             <option value="true">In Stock Only</option>
             <option value="false">Out of Stock</option>
           </select>
@@ -93,7 +142,7 @@ export default function FilterBar({ filters, availableWebsites = [], onFilterCha
 
         {hasActiveFilters && (
           <button onClick={onReset} className="btn-text">
-            <X size={14} /> Reset Filters
+            <X size={14} /> Reset
           </button>
         )}
       </div>

@@ -1,7 +1,7 @@
 const Joi = require('joi');
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
-const { scrapeAndSaveToDatabase, SITE_PROFILES } = require('../services/scraperService');
+const { scrapeAndSaveToDatabase } = require('../services/scraperService');
 
 // State tracker to monitor active scraping jobs
 const scraperState = {
@@ -12,11 +12,10 @@ const scraperState = {
   currentTask: null
 };
 
-// Joi schema supporting dynamic target URLs and optional custom selectors
+// Universal scraper input validation schema
 const startScraperSchema = Joi.object({
-  url: Joi.string()
-    .uri()
-    .default(process.env.SCRAPER_BASE_URL || 'https://books.toscrape.com/'),
+  url: Joi.string().uri().required(),
+  mode: Joi.string().valid('auto', 'single', 'catalog').default('auto'),
   pageLimit: Joi.number().integer().min(0).max(50).default(1),
   delayMs: Joi.number().integer().min(0).max(10000).default(1000),
   selectors: Joi.object({
@@ -33,7 +32,7 @@ const startScraperSchema = Joi.object({
 });
 
 /**
- * @desc    Trigger dynamic scraping job and save data to MongoDB
+ * @desc    Trigger universal scraping job and persist structured data to MongoDB
  * @route   POST /api/scraper/start
  */
 const startScraper = async (req, res, next) => {
@@ -55,15 +54,16 @@ const startScraper = async (req, res, next) => {
       });
     }
 
-    const { url, pageLimit, delayMs, selectors } = value;
+    const { url, mode, pageLimit, delayMs, selectors } = value;
 
     scraperState.isRunning = true;
     scraperState.startTime = new Date();
-    scraperState.currentTask = { url, pageLimit, delayMs };
+    scraperState.currentTask = { url, mode, pageLimit, delayMs };
 
     try {
       const summary = await scrapeAndSaveToDatabase({
         startUrl: url,
+        mode,
         pageLimit,
         delayMs,
         selectors
@@ -76,7 +76,7 @@ const startScraper = async (req, res, next) => {
 
       return res.status(200).json({
         success: true,
-        message: `Scraping completed for ${summary.website} and saved to MongoDB.`,
+        message: `Scraping completed for ${summary.website} via ${summary.extractionMethod}.`,
         data: summary
       });
     } catch (scrapeErr) {
@@ -90,17 +90,20 @@ const startScraper = async (req, res, next) => {
 };
 
 /**
- * @desc    Get all scraped products with multi-website filters, search & pagination
+ * @desc    Get all scraped products with multi-website, brand, and type filters
  * @route   GET /api/scraper/products
  */
 const getProducts = async (req, res, next) => {
   try {
     const {
       page = 1,
-      limit = 10,
+      limit = 12,
       search,
       category,
+      brand,
       sourceDomain,
+      pageType,
+      extractionSource,
       minPrice,
       maxPrice,
       rating,
@@ -111,37 +114,28 @@ const getProducts = async (req, res, next) => {
 
     const query = {};
 
-    // 1. Text Search on Title
     if (search) {
-      query.title = { $regex: search, $options: 'i' };
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { brand: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
     }
 
-    // 2. Filter by Website Domain
-    if (sourceDomain) {
-      query.sourceDomain = { $regex: sourceDomain, $options: 'i' };
-    }
+    if (sourceDomain) query.sourceDomain = { $regex: sourceDomain, $options: 'i' };
+    if (category) query.category = { $regex: category, $options: 'i' };
+    if (brand) query.brand = { $regex: brand, $options: 'i' };
+    if (pageType) query.pageType = pageType;
+    if (extractionSource) query.extractionSource = extractionSource;
 
-    // 3. Filter by Category
-    if (category) {
-      query.category = { $regex: category, $options: 'i' };
-    }
-
-    // 4. Filter by Price Range
     if (minPrice !== undefined || maxPrice !== undefined) {
       query.price = {};
       if (minPrice !== undefined) query.price.$gte = Number(minPrice);
       if (maxPrice !== undefined) query.price.$lte = Number(maxPrice);
     }
 
-    // 5. Filter by Rating
-    if (rating !== undefined) {
-      query.rating = Number(rating);
-    }
-
-    // 6. Filter by inStock
-    if (inStock !== undefined) {
-      query.inStock = inStock === 'true';
-    }
+    if (rating !== undefined) query.rating = Number(rating);
+    if (inStock !== undefined) query.inStock = inStock === 'true';
 
     const pageNum = Math.max(1, parseInt(page, 10));
     const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10)));
@@ -150,10 +144,11 @@ const getProducts = async (req, res, next) => {
     const sortOrder = order === 'asc' ? 1 : -1;
     const sortObj = { [sortBy]: sortOrder };
 
-    const [products, total, domains] = await Promise.all([
+    const [products, total, domains, brands] = await Promise.all([
       Product.find(query).sort(sortObj).skip(skip).limit(limitNum).lean(),
       Product.countDocuments(query),
-      Product.distinct('sourceDomain')
+      Product.distinct('sourceDomain'),
+      Product.distinct('brand')
     ]);
 
     res.status(200).json({
@@ -163,6 +158,7 @@ const getProducts = async (req, res, next) => {
       totalPages: Math.ceil(total / limitNum),
       currentPage: pageNum,
       availableWebsites: domains,
+      availableBrands: brands.filter((b) => b && b !== 'Generic'),
       products
     });
   } catch (err) {
@@ -238,7 +234,7 @@ const deleteProduct = async (req, res, next) => {
 };
 
 /**
- * @desc    Get aggregate stats of scraped products in MongoDB across all websites
+ * @desc    Get aggregate stats of scraped products across all websites
  * @route   GET /api/scraper/stats
  */
 const getScraperStats = async (req, res, next) => {
@@ -248,9 +244,7 @@ const getScraperStats = async (req, res, next) => {
         Product.countDocuments(),
         Product.countDocuments({ inStock: true }),
         Product.countDocuments({ inStock: false }),
-        Product.aggregate([
-          { $group: { _id: '$sourceDomain', count: { $sum: 1 } } }
-        ]),
+        Product.aggregate([{ $group: { _id: '$sourceDomain', count: { $sum: 1 } } }]),
         Product.aggregate([
           {
             $group: {

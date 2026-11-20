@@ -1,16 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const dns = require('dns');
 const connectDB = require('../config/db');
 const scraperRoutes = require('../routes/scraperRoutes');
 const { notFound, errorHandler } = require('../middlewares/errorMiddleware');
-
-try {
-  dns.setServers(['8.8.8.8', '1.1.1.1']);
-} catch {
-  // Ignore in environments where setting DNS is restricted
-}
 
 dotenv.config();
 

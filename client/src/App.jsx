@@ -12,8 +12,10 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [stats, setStats] = useState(null);
   const [availableWebsites, setAvailableWebsites] = useState([]);
+  const [availableBrands, setAvailableBrands] = useState([]);
   const [isScraping, setIsScraping] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [suggestedLinks, setSuggestedLinks] = useState([]);
   const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -25,6 +27,9 @@ export default function App() {
   const [filters, setFilters] = useState({
     search: '',
     sourceDomain: '',
+    brand: '',
+    pageType: '',
+    extractionSource: '',
     rating: '',
     inStock: '',
     sortBy: 'createdAt',
@@ -43,9 +48,8 @@ export default function App() {
       setProducts(data.products || []);
       setTotalPages(data.totalPages || 1);
       setTotalProducts(data.total || 0);
-      if (data.availableWebsites) {
-        setAvailableWebsites(data.availableWebsites);
-      }
+      if (data.availableWebsites) setAvailableWebsites(data.availableWebsites);
+      if (data.availableBrands) setAvailableBrands(data.availableBrands);
     } catch (err) {
       console.error('Failed to load products:', err);
     } finally {
@@ -81,6 +85,9 @@ export default function App() {
     setFilters({
       search: '',
       sourceDomain: '',
+      brand: '',
+      pageType: '',
+      extractionSource: '',
       rating: '',
       inStock: '',
       sortBy: 'createdAt',
@@ -89,18 +96,27 @@ export default function App() {
     setCurrentPage(1);
   };
 
-  // Handle Triggering Dynamic Scraper Job
+  // Handle Triggering Universal Scraper Job
   const handleStartScrape = async (options) => {
     try {
       setIsScraping(true);
       setIsError(false);
-      setStatusMessage(`Scraping job started for ${options.url}. Extracting data & persisting to MongoDB...`);
+      setSuggestedLinks([]);
+      setStatusMessage(`Analyzing & scraping ${options.url} across multi-tier pipeline...`);
 
       const response = await startScraper(options);
       const summary = response.data;
-      setStatusMessage(
-        `Scraping finished for ${summary.website}! Scraped ${summary.pagesScraped} page(s), collected ${summary.totalProductsFound} items (${summary.newInserted} new, ${summary.updatedExisting} updated).`
-      );
+
+      if (summary.totalProductsFound === 0 && summary.suggestedLinks?.length > 0) {
+        setSuggestedLinks(summary.suggestedLinks);
+        setStatusMessage(
+          `Scraped homepage for ${summary.website}, but homepages rarely contain direct buyable cards. We discovered direct category links below:`
+        );
+      } else {
+        setStatusMessage(
+          `Success! Scraped ${summary.website} (${summary.pageType}) via [${summary.extractionMethod}]. Extracted ${summary.totalProductsFound} item(s) in ${summary.durationSeconds} (${summary.newInserted} new, ${summary.updatedExisting} updated).`
+        );
+      }
 
       await loadProducts();
       await loadStats();
@@ -141,18 +157,20 @@ export default function App() {
         {/* Statistics Metric Cards */}
         <StatsDashboard stats={stats} />
 
-        {/* Dynamic Scraper Trigger Controls with Presets */}
+        {/* Universal Scraper Trigger Controls with Presets */}
         <ScraperPanel
           isScraping={isScraping}
           onStartScrape={handleStartScrape}
           statusMessage={statusMessage}
           isError={isError}
+          suggestedLinks={suggestedLinks}
         />
 
-        {/* Search, Website Filter, Sort and Filtering Controls */}
+        {/* Search, Website, Brand, Type and Status Filters */}
         <FilterBar
           filters={filters}
           availableWebsites={availableWebsites}
+          availableBrands={availableBrands}
           onFilterChange={handleFilterChange}
           onReset={handleResetFilters}
         />
@@ -169,9 +187,9 @@ export default function App() {
               <Inbox size={48} className="empty-icon" />
               <h3>No Items Found</h3>
               <p>
-                {filters.search || filters.sourceDomain || filters.rating || filters.inStock
+                {filters.search || filters.sourceDomain || filters.brand || filters.rating || filters.pageType
                   ? 'No items match your active search filters.'
-                  : 'Your database is currently empty. Click "Start Scraping" above to collect items!'}
+                  : 'Your database is currently empty. Enter any website URL above to scrape items!'}
               </p>
             </div>
           ) : (

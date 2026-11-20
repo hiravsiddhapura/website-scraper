@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, ExternalLink, Trash2, Calendar, Globe } from 'lucide-react';
+import { Star, ExternalLink, Trash2, Calendar, Globe, Tag, Sparkles } from 'lucide-react';
 
 export default function ProductCard({ product, onDelete }) {
   const formattedDate = new Date(product.scrapedAt).toLocaleDateString(undefined, {
@@ -17,20 +17,34 @@ export default function ProductCard({ product, onDelete }) {
           alt={product.title}
           loading="lazy"
           onError={(e) => {
-            e.target.src = 'https://placehold.co/200x280?text=No+Cover';
+            e.target.src = 'https://placehold.co/400x500?text=No+Product+Image';
           }}
         />
-        <span className={`stock-badge ${product.inStock ? 'badge-in-stock' : 'badge-out-of-stock'}`}>
-          {product.availability}
-        </span>
+
+        <div className="card-top-badges">
+          <span className={`stock-badge ${product.inStock ? 'badge-in-stock' : 'badge-out-of-stock'}`}>
+            {product.availability}
+          </span>
+
+          {product.extractionSource && (
+            <span className="source-tag" title={`Extracted via ${product.extractionSource} (${product.confidenceScore || 80}% confidence)`}>
+              <Sparkles size={10} /> {product.extractionSource}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="card-body">
         <div className="card-meta">
           <div className="meta-left">
-            <span className="domain-pill" title={`Scraped from ${product.sourceDomain}`}>
+            <span className="domain-pill" title={`Domain: ${product.sourceDomain}`}>
               <Globe size={11} /> {product.sourceDomain || 'Web'}
             </span>
+            {product.brand && product.brand !== 'Generic' && (
+              <span className="brand-pill" title={`Brand: ${product.brand}`}>
+                <Tag size={10} /> {product.brand}
+              </span>
+            )}
             <span className="category-pill">{product.category || 'General'}</span>
           </div>
 
@@ -51,11 +65,17 @@ export default function ProductCard({ product, onDelete }) {
           {product.title}
         </h3>
 
+        {product.description && (
+          <p className="card-description" title={product.description}>
+            {product.description}
+          </p>
+        )}
+
         <div className="card-footer">
           <div className="price-tag">
             {product.price > 0 ? (
               <>
-                <span className="currency">{product.currency || '£'}</span>
+                <span className="currency">{product.currency || '$'}</span>
                 <span className="amount">{product.price.toFixed(2)}</span>
               </>
             ) : (
@@ -87,6 +107,7 @@ export default function ProductCard({ product, onDelete }) {
         <div className="card-timestamp">
           <Calendar size={12} />
           <span>Scraped: {formattedDate}</span>
+          <span className="page-type-pill">{product.pageType === 'detail' ? 'Product Page' : 'Catalog'}</span>
         </div>
       </div>
     </div>
