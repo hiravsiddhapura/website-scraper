@@ -35,6 +35,17 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Ensure DB connection before processing routes
+app.use(async (req, res, next) => {
+  if (req.path === '/api/health') return next();
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Mount Scraper REST APIs
 app.use('/api/scraper', scraperRoutes);
 

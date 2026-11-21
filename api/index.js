@@ -7,15 +7,27 @@ const { notFound, errorHandler } = require('../middlewares/errorMiddleware');
 
 dotenv.config();
 
-// Connect to MongoDB
-connectDB();
-
 const app = express();
 
 // Middlewares
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serverless DB Connection Middleware: Ensures MongoDB connection is ready before processing routes
+app.use(async (req, res, next) => {
+  if (req.path === '/api/health') return next();
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('Serverless DB Middleware Error:', err.message);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
 
 // Health Check route
 app.get('/api/health', (req, res) => {
