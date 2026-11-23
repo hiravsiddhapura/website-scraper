@@ -5,8 +5,8 @@ import ScraperPanel from './components/ScraperPanel';
 import FilterBar from './components/FilterBar';
 import ProductCard from './components/ProductCard';
 import Pagination from './components/Pagination';
-import { getProducts, getStats, startScraper, deleteProduct } from './services/api';
-import { Loader2, Inbox } from 'lucide-react';
+import { getProducts, getStats, startScraper, deleteProduct, deleteAllProducts } from './services/api';
+import { Loader2, Inbox, Sparkles } from 'lucide-react';
 
 export default function App() {
   const [products, setProducts] = useState([]);
@@ -102,7 +102,11 @@ export default function App() {
       setIsScraping(true);
       setIsError(false);
       setSuggestedLinks([]);
-      setStatusMessage(`Analyzing & scraping ${options.url} across multi-tier pipeline...`);
+      
+      const cleanActionMsg = options.clearExisting
+        ? `Wiping previous products & scraping ${options.url}...`
+        : `Analyzing & scraping ${options.url}...`;
+      setStatusMessage(cleanActionMsg);
 
       const response = await startScraper(options);
       const summary = response.data;
@@ -110,14 +114,17 @@ export default function App() {
       if (summary.totalProductsFound === 0 && summary.suggestedLinks?.length > 0) {
         setSuggestedLinks(summary.suggestedLinks);
         setStatusMessage(
-          `Scraped homepage for ${summary.website}, but homepages rarely contain direct buyable cards. We discovered direct category links below:`
+          `Scraped ${summary.website}, but no buyable cards were found directly on this page. Discovered category links below:`
         );
       } else {
+        const replaceNote = options.clearExisting ? ' (Previous items cleared)' : '';
         setStatusMessage(
-          `Success! Scraped ${summary.website} (${summary.pageType}) via [${summary.extractionMethod}]. Extracted ${summary.totalProductsFound} item(s) in ${summary.durationSeconds} (${summary.newInserted} new, ${summary.updatedExisting} updated).`
+          `Success! Scraped ${summary.website} (${summary.pageType}) via [${summary.extractionMethod}]. Extracted ${summary.totalProductsFound} item(s) in ${summary.durationSeconds}${replaceNote}.`
         );
       }
 
+      // Reset to page 1 and reload
+      setCurrentPage(1);
       await loadProducts();
       await loadStats();
     } catch (err) {
@@ -128,7 +135,7 @@ export default function App() {
     }
   };
 
-  // Handle Deleting Product
+  // Handle Deleting Single Product
   const handleDeleteProduct = async (id, title) => {
     if (!window.confirm(`Are you sure you want to delete "${title}"?`)) {
       return;
@@ -138,29 +145,60 @@ export default function App() {
       await deleteProduct(id);
       setProducts((prev) => prev.filter((p) => p._id !== id));
       loadStats();
+      loadProducts();
     } catch (err) {
       alert(`Error deleting product: ${err.message}`);
     }
   };
 
+  // Handle Clearing All Products (Wipe Database)
+  const handleClearAll = async () => {
+    if (!window.confirm('Are you sure you want to delete ALL products from your database? This will clear the entire product list.')) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await deleteAllProducts();
+      setProducts([]);
+      setTotalProducts(0);
+      setTotalPages(1);
+      setStatusMessage('Successfully cleared all products from database.');
+      setIsError(false);
+      await loadStats();
+    } catch (err) {
+      alert(`Failed to clear products: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Determine active currency symbol from first product
+  const activeCurrency = products[0]?.currency || '$';
+
   return (
     <div className="app-layout">
+      {/* Sleek Top Navbar */}
       <Navbar
         isScraping={isScraping}
+        totalProducts={totalProducts}
         onRefresh={() => {
           loadProducts();
           loadStats();
         }}
+        onClearAll={handleClearAll}
       />
 
       <main className="main-content">
         {/* Statistics Metric Cards */}
-        <StatsDashboard stats={stats} />
+        <StatsDashboard stats={stats} activeCurrency={activeCurrency} />
 
-        {/* Universal Scraper Trigger Controls with Presets */}
+        {/* Universal Scraper Controls with Replace Toggle */}
         <ScraperPanel
           isScraping={isScraping}
           onStartScrape={handleStartScrape}
+          onClearAll={handleClearAll}
+          totalProducts={totalProducts}
           statusMessage={statusMessage}
           isError={isError}
           suggestedLinks={suggestedLinks}
@@ -169,6 +207,7 @@ export default function App() {
         {/* Search, Website, Brand, Type and Status Filters */}
         <FilterBar
           filters={filters}
+          totalItems={totalProducts}
           availableWebsites={availableWebsites}
           availableBrands={availableBrands}
           onFilterChange={handleFilterChange}
@@ -179,17 +218,19 @@ export default function App() {
         <section className="products-section">
           {isLoading ? (
             <div className="loading-state">
-              <Loader2 size={36} className="animate-spin text-primary" />
-              <p>Loading items from MongoDB...</p>
+              <Loader2 size={38} className="animate-spin text-primary" />
+              <p>Loading products from MongoDB...</p>
             </div>
           ) : products.length === 0 ? (
             <div className="empty-state">
-              <Inbox size={48} className="empty-icon" />
-              <h3>No Items Found</h3>
+              <div className="empty-state-icon">
+                <Inbox size={48} />
+              </div>
+              <h3>No Products in List</h3>
               <p>
                 {filters.search || filters.sourceDomain || filters.brand || filters.rating || filters.pageType
-                  ? 'No items match your active search filters.'
-                  : 'Your database is currently empty. Enter any website URL above to scrape items!'}
+                  ? 'No items match your active search filters. Try clearing filters.'
+                  : 'Your database is currently empty. Paste any product link or click a preset above to extract items!'}
               </p>
             </div>
           ) : (

@@ -323,6 +323,7 @@ const scrapeAndSaveToDatabase = async ({
   pageLimit = 1,
   delayMs = 1000,
   mode = 'auto',
+  clearExisting = false,
   selectors = {}
 } = {}) => {
   const startTime = Date.now();
@@ -341,8 +342,15 @@ const scrapeAndSaveToDatabase = async ({
   console.log(`🎯 URL: ${startUrl}`);
   console.log(`🏷️ Domain: ${domain}`);
   console.log(`⚙️ Mode: ${mode}`);
+  console.log(`🧹 Clear Previous: ${clearExisting ? 'Yes' : 'No'}`);
   console.log(`📄 Page Limit: ${pageLimit === 0 ? 'All Pages' : pageLimit}`);
   console.log(`======================================================\n`);
+
+  // Clear previous products if requested so user gets only items from the new URL
+  if (clearExisting) {
+    console.log(`🧹 Clearing existing products from database...`);
+    await Product.deleteMany({});
+  }
 
   while (currentUrl) {
     pageCount += 1;

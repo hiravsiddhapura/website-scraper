@@ -5,6 +5,7 @@ const {
   getProducts,
   getProductById,
   deleteProduct,
+  deleteAllProducts,
   getScraperStats,
   getScraperStatus
 } = require('../controllers/scraperController');
@@ -16,6 +17,7 @@ router.get('/stats', getScraperStats);
 
 // Product CRUD and query endpoints
 router.get('/products', getProducts);
+router.delete('/products', deleteAllProducts);
 router.get('/products/:id', getProductById);
 router.delete('/products/:id', deleteProduct);
 

@@ -18,6 +18,7 @@ const startScraperSchema = Joi.object({
   mode: Joi.string().valid('auto', 'single', 'catalog').default('auto'),
   pageLimit: Joi.number().integer().min(0).max(50).default(1),
   delayMs: Joi.number().integer().min(0).max(10000).default(1000),
+  clearExisting: Joi.boolean().default(false),
   selectors: Joi.object({
     itemSelector: Joi.string().allow('', null),
     titleSelector: Joi.string().allow('', null),
@@ -54,11 +55,11 @@ const startScraper = async (req, res, next) => {
       });
     }
 
-    const { url, mode, pageLimit, delayMs, selectors } = value;
+    const { url, mode, pageLimit, delayMs, clearExisting, selectors } = value;
 
     scraperState.isRunning = true;
     scraperState.startTime = new Date();
-    scraperState.currentTask = { url, mode, pageLimit, delayMs };
+    scraperState.currentTask = { url, mode, pageLimit, delayMs, clearExisting };
 
     try {
       const summary = await scrapeAndSaveToDatabase({
@@ -66,6 +67,7 @@ const startScraper = async (req, res, next) => {
         mode,
         pageLimit,
         delayMs,
+        clearExisting,
         selectors
       });
 
@@ -234,6 +236,23 @@ const deleteProduct = async (req, res, next) => {
 };
 
 /**
+ * @desc    Delete all products from MongoDB database
+ * @route   DELETE /api/scraper/products
+ */
+const deleteAllProducts = async (req, res, next) => {
+  try {
+    const result = await Product.deleteMany({});
+    res.status(200).json({
+      success: true,
+      message: `Successfully cleared all ${result.deletedCount} products.`,
+      deletedCount: result.deletedCount
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
  * @desc    Get aggregate stats of scraped products across all websites
  * @route   GET /api/scraper/stats
  */
@@ -304,6 +323,7 @@ module.exports = {
   getProducts,
   getProductById,
   deleteProduct,
+  deleteAllProducts,
   getScraperStats,
   getScraperStatus
 };
