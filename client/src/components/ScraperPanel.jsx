@@ -9,7 +9,6 @@ import {
   ChevronUp,
   AlertCircle,
   CheckCircle2,
-  Trash2,
   Layers,
   ArrowRight,
   ExternalLink
@@ -51,7 +50,6 @@ const PRESETS = [
 export default function ScraperPanel({
   isScraping,
   onStartScrape,
-  onClearAll,
   totalProducts = 0,
   statusMessage,
   isError,
@@ -349,22 +347,6 @@ export default function ScraperPanel({
             )}
           </div>
           <div className="banner-text">{statusMessage}</div>
-        </div>
-      )}
-
-      {/* Quick Database Actions Footer */}
-      {totalProducts > 0 && (
-        <div className="studio-footer-actions">
-          <button
-            type="button"
-            onClick={onClearAll}
-            disabled={isScraping}
-            className="btn-studio-clear"
-            title="Delete all products from MongoDB"
-          >
-            <Trash2 size={13} />
-            <span>Clear Entire Database ({totalProducts})</span>
-          </button>
         </div>
       )}
     </div>
