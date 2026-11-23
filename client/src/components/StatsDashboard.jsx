@@ -1,12 +1,72 @@
 import React from 'react';
-import { Package, CheckCircle2, XCircle, DollarSign, Layers } from 'lucide-react';
+import { Package, CheckCircle2, XCircle, DollarSign, Sparkles } from 'lucide-react';
 
-export default function StatsDashboard({ stats, activeCurrency = '$' }) {
+export default function StatsDashboard({ stats, activeCurrency = '$', compact = false }) {
   if (!stats) return null;
 
-  // Resolve currency symbol dynamically
   const currencySymbol = activeCurrency || '$';
+  const inStockPercent = stats.totalProducts > 0
+    ? Math.round(((stats.availableProducts || 0) / stats.totalProducts) * 100)
+    : 100;
 
+  // Ultra-compact horizontal KPI ribbon for instant product view without vertical clutter
+  if (compact) {
+    return (
+      <div className="kpi-strip">
+        <div className="kpi-item">
+          <div className="kpi-icon indigo">
+            <Package size={14} />
+          </div>
+          <div className="kpi-details">
+            <span className="kpi-label">Total Products</span>
+            <span className="kpi-value">{stats.totalProducts || 0}</span>
+          </div>
+        </div>
+
+        <div className="kpi-divider"></div>
+
+        <div className="kpi-item">
+          <div className="kpi-icon emerald">
+            <CheckCircle2 size={14} />
+          </div>
+          <div className="kpi-details">
+            <span className="kpi-label">In Stock</span>
+            <span className="kpi-value text-emerald">
+              {stats.availableProducts || 0} <span className="kpi-sub">({inStockPercent}%)</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="kpi-divider"></div>
+
+        <div className="kpi-item">
+          <div className="kpi-icon rose">
+            <XCircle size={14} />
+          </div>
+          <div className="kpi-details">
+            <span className="kpi-label">Out of Stock</span>
+            <span className="kpi-value text-rose">{stats.outOfStockProducts || 0}</span>
+          </div>
+        </div>
+
+        <div className="kpi-divider"></div>
+
+        <div className="kpi-item">
+          <div className="kpi-icon violet">
+            <DollarSign size={14} />
+          </div>
+          <div className="kpi-details">
+            <span className="kpi-label">Avg Price</span>
+            <span className="kpi-value">
+              {currencySymbol}{stats.pricing?.average ? stats.pricing.average.toFixed(2) : '0.00'}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Full Card Grid
   return (
     <div className="stats-grid">
       {/* Total Products */}
@@ -33,9 +93,7 @@ export default function StatsDashboard({ stats, activeCurrency = '$' }) {
             <CheckCircle2 size={20} />
           </div>
           <span className="stat-badge in-stock">
-            {stats.totalProducts > 0
-              ? `${Math.round(((stats.availableProducts || 0) / stats.totalProducts) * 100)}%`
-              : '100%'}
+            {inStockPercent}%
           </span>
         </div>
         <div className="stat-card-body">

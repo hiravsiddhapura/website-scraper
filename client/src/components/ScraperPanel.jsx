@@ -12,13 +12,12 @@ import {
   Trash2,
   Layers,
   ArrowRight,
-  ExternalLink,
-  RotateCcw
+  ExternalLink
 } from 'lucide-react';
 
 const PRESETS = [
   {
-    name: 'boAt Lifestyle Store',
+    name: 'boAt Lifestyle',
     icon: '🎧',
     url: 'https://www.boat-lifestyle.com/',
     mode: 'auto'
@@ -30,13 +29,13 @@ const PRESETS = [
     mode: 'catalog'
   },
   {
-    name: 'Single Book Detail',
+    name: 'Single Book',
     icon: '📖',
     url: 'https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html',
     mode: 'single'
   },
   {
-    name: 'Electronics Catalog',
+    name: 'Electronics',
     icon: '💻',
     url: 'https://webscraper.io/test-sites/e-commerce/allinone',
     mode: 'catalog'
@@ -101,74 +100,79 @@ export default function ScraperPanel({
   };
 
   return (
-    <div className="scraper-card">
-      {/* Panel Header */}
-      <div className="scraper-card-header">
-        <div className="header-info">
-          <div className="badge-sparkle">
-            <Sparkles size={13} /> Universal Any-Website Extractor
+    <div className="scraper-studio-card">
+      {/* Studio Header */}
+      <div className="studio-card-header">
+        <div className="studio-title-row">
+          <div className="studio-badge">
+            <Sparkles size={13} />
+            <span>Studio</span>
           </div>
-          <h2>Extract Products from Any URL</h2>
-          <p>
-            Paste any e-commerce link (Shopify, WooCommerce, Catalog or Single Item) — our multi-engine extractor pulls products automatically.
-          </p>
+          <span className="studio-pill">Universal Engine</span>
         </div>
+        <h2 className="studio-heading">Extract Any Website</h2>
+        <p className="studio-subtext">
+          Enter any e-commerce link or select a preset to extract live products instantly.
+        </p>
+      </div>
 
-        {/* Quick Presets */}
-        <div className="presets-container">
-          <span className="presets-title">Quick Presets:</span>
-          <div className="presets-list">
-            {PRESETS.map((preset) => (
-              <button
-                key={preset.url}
-                type="button"
-                className={`preset-pill ${url === preset.url ? 'active' : ''}`}
-                onClick={() => handlePresetSelect(preset)}
-                disabled={isScraping}
-              >
-                <span className="preset-emoji">{preset.icon}</span>
-                <span>{preset.name}</span>
-              </button>
-            ))}
-          </div>
+      {/* Quick Presets */}
+      <div className="studio-presets-section">
+        <span className="studio-section-label">Quick Presets:</span>
+        <div className="studio-presets-grid">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.url}
+              type="button"
+              className={`studio-preset-pill ${url === preset.url ? 'active' : ''}`}
+              onClick={() => handlePresetSelect(preset)}
+              disabled={isScraping}
+              title={preset.url}
+            >
+              <span className="preset-emoji">{preset.icon}</span>
+              <span className="preset-name">{preset.name}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Main Scraper Form */}
-      <form onSubmit={handleSubmit} className="scraper-form">
-        <div className="form-main-row">
-          {/* Target URL Input */}
-          <div className="url-input-container">
-            <label htmlFor="target-url" className="form-label">
-              <Globe size={14} /> Target Webpage URL
-            </label>
-            <div className="input-with-icon">
-              <input
-                id="target-url"
-                type="url"
-                required
-                placeholder="https://example.com/products or /collections/..."
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                disabled={isScraping}
-              />
-              {url && (
-                <button
-                  type="button"
-                  className="input-clear-btn"
-                  onClick={() => setUrl('')}
-                  title="Clear URL"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+      {/* Extraction Form */}
+      <form onSubmit={handleSubmit} className="studio-form">
+        {/* Target URL */}
+        <div className="studio-field">
+          <label htmlFor="target-url" className="studio-label">
+            <Globe size={13} />
+            <span>Target Webpage URL</span>
+          </label>
+          <div className="studio-input-wrap">
+            <input
+              id="target-url"
+              type="url"
+              required
+              placeholder="https://example.com/products..."
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              disabled={isScraping}
+            />
+            {url && (
+              <button
+                type="button"
+                className="studio-input-clear"
+                onClick={() => setUrl('')}
+                title="Clear URL"
+              >
+                ✕
+              </button>
+            )}
           </div>
+        </div>
 
-          {/* Mode Selector */}
-          <div className="mode-select-container">
-            <label htmlFor="scrape-mode" className="form-label">
-              <Layers size={14} /> Extraction Mode
+        {/* Mode & Page Limit Row */}
+        <div className="studio-row-2col">
+          <div className="studio-field">
+            <label htmlFor="scrape-mode" className="studio-label">
+              <Layers size={13} />
+              <span>Mode</span>
             </label>
             <select
               id="scrape-mode"
@@ -176,16 +180,15 @@ export default function ScraperPanel({
               onChange={(e) => setMode(e.target.value)}
               disabled={isScraping}
             >
-              <option value="auto">✨ Auto-Detect (Single or Catalog)</option>
-              <option value="catalog">📚 Catalog / Collection (PLP)</option>
-              <option value="single">🔍 Single Product Detail (PDP)</option>
+              <option value="auto">Auto-Detect</option>
+              <option value="catalog">Catalog (PLP)</option>
+              <option value="single">Single (PDP)</option>
             </select>
           </div>
 
-          {/* Page Limit */}
-          <div className="limit-select-container">
-            <label htmlFor="page-limit" className="form-label">
-              📄 Page Limit
+          <div className="studio-field">
+            <label htmlFor="page-limit" className="studio-label">
+              <span>Pages</span>
             </label>
             <select
               id="page-limit"
@@ -197,122 +200,107 @@ export default function ScraperPanel({
               <option value={2}>2 Pages</option>
               <option value={5}>5 Pages</option>
               <option value={10}>10 Pages</option>
-              <option value={0}>All Pages (Deep Crawl)</option>
+              <option value={0}>All Pages</option>
             </select>
-          </div>
-
-          {/* Submit Action Button */}
-          <div className="action-button-container">
-            <button
-              type="submit"
-              disabled={isScraping || !url.trim()}
-              className="btn-extract-primary"
-            >
-              {isScraping ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  <span>Scraping...</span>
-                </>
-              ) : (
-                <>
-                  <Play size={17} fill="currentColor" />
-                  <span>Extract Products</span>
-                </>
-              )}
-            </button>
           </div>
         </div>
 
-        {/* Clear Previous Option Toggle (User Request: Delete first product in list when getting new link) */}
-        <div className="scraper-options-row">
-          <label className="replace-toggle-label" title="When enabled, removes previously scraped products so only items from the new URL appear in your list.">
+        {/* Replace Previous Toggle Switch */}
+        <div className="studio-toggle-field">
+          <label className="studio-switch-label" title="Clears existing products so only newly scraped items appear">
             <input
               type="checkbox"
               checked={clearExisting}
               onChange={(e) => setClearExisting(e.target.checked)}
               disabled={isScraping}
-              className="replace-checkbox"
+              className="studio-checkbox"
             />
-            <span className="toggle-custom"></span>
-            <span className="toggle-text">
-              <strong>Replace previous products on scrape</strong> (clears old list so only new products are displayed)
+            <span className="studio-switch-track">
+              <span className="studio-switch-thumb"></span>
             </span>
+            <div className="studio-switch-text">
+              <strong>Replace previous list</strong>
+              <small>Auto-deletes old products on scrape</small>
+            </div>
           </label>
-
-          <div className="options-right">
-            {totalProducts > 0 && (
-              <button
-                type="button"
-                onClick={onClearAll}
-                disabled={isScraping}
-                className="btn-text-danger"
-                title="Wipe all products from database now"
-              >
-                <Trash2 size={13} />
-                <span>Clear Current List ({totalProducts})</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              className="advanced-toggle-btn"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-            >
-              <Sliders size={13} />
-              <span>Custom CSS Selectors (Optional)</span>
-              {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-          </div>
         </div>
 
-        {/* Optional Custom CSS Selectors Accordion */}
+        {/* Big Action Button */}
+        <button
+          type="submit"
+          disabled={isScraping || !url.trim()}
+          className="btn-studio-extract"
+        >
+          {isScraping ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              <span>Scraping Pipeline Active...</span>
+            </>
+          ) : (
+            <>
+              <Play size={16} fill="currentColor" />
+              <span>Extract Products</span>
+            </>
+          )}
+        </button>
+
+        {/* Advanced Selectors Toggle */}
+        <button
+          type="button"
+          className="btn-studio-advanced"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+        >
+          <Sliders size={13} />
+          <span>Custom CSS Selectors</span>
+          {showAdvanced ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
+
+        {/* Collapsible Advanced Form */}
         {showAdvanced && (
-          <div className="advanced-selectors-panel">
-            <div className="advanced-hint">
-              Override universal heuristics by specifying exact CSS selectors for custom or obscure sites:
-            </div>
-            <div className="selectors-grid">
-              <div className="selector-field">
+          <div className="studio-advanced-panel">
+            <p className="studio-advanced-hint">Override with custom selectors:</p>
+            <div className="studio-advanced-grid">
+              <div className="studio-adv-field">
                 <label>Card Container</label>
                 <input
                   type="text"
-                  placeholder="e.g. .product-item, .card"
+                  placeholder=".product-item, .card"
                   value={selectors.itemSelector}
                   onChange={(e) => handleSelectorChange('itemSelector', e.target.value)}
                 />
               </div>
-              <div className="selector-field">
+              <div className="studio-adv-field">
                 <label>Title Selector</label>
                 <input
                   type="text"
-                  placeholder="e.g. h3 a, .title"
+                  placeholder="h3 a, .title"
                   value={selectors.titleSelector}
                   onChange={(e) => handleSelectorChange('titleSelector', e.target.value)}
                 />
               </div>
-              <div className="selector-field">
+              <div className="studio-adv-field">
                 <label>Price Selector</label>
                 <input
                   type="text"
-                  placeholder="e.g. .price, .amount"
+                  placeholder=".price, .amount"
                   value={selectors.priceSelector}
                   onChange={(e) => handleSelectorChange('priceSelector', e.target.value)}
                 />
               </div>
-              <div className="selector-field">
+              <div className="studio-adv-field">
                 <label>Image Selector</label>
                 <input
                   type="text"
-                  placeholder="e.g. img.product-img"
+                  placeholder="img.product-img"
                   value={selectors.imageSelector}
                   onChange={(e) => handleSelectorChange('imageSelector', e.target.value)}
                 />
               </div>
-              <div className="selector-field">
+              <div className="studio-adv-field">
                 <label>Link Selector</label>
                 <input
                   type="text"
-                  placeholder="e.g. a.product-link"
+                  placeholder="a.product-link"
                   value={selectors.linkSelector}
                   onChange={(e) => handleSelectorChange('linkSelector', e.target.value)}
                 />
@@ -322,45 +310,61 @@ export default function ScraperPanel({
         )}
       </form>
 
-      {/* Discovered Subcategory Links (Homepage guidance) */}
+      {/* Suggested Subcategories */}
       {suggestedLinks && suggestedLinks.length > 0 && (
-        <div className="suggested-links-box">
-          <div className="suggested-header">
-            <Sparkles size={15} />
-            <span>Discovered Product Categories (Click to scrape directly):</span>
+        <div className="studio-suggested-box">
+          <div className="studio-suggested-header">
+            <Sparkles size={13} />
+            <span>Discovered Categories:</span>
           </div>
-          <div className="suggested-chips">
-            {suggestedLinks.map((link, idx) => (
+          <div className="studio-suggested-chips">
+            {suggestedLinks.slice(0, 4).map((link, idx) => (
               <button
                 key={idx}
                 type="button"
-                className="suggested-chip"
+                className="studio-suggested-chip"
                 onClick={() => {
                   setUrl(link);
                   setMode('catalog');
                 }}
               >
                 <span>{link.replace(/^https?:\/\/[^\/]+/, '') || link}</span>
-                <ArrowRight size={13} />
+                <ArrowRight size={11} />
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* Live Status / Notification Banner */}
+      {/* Status / Alert Banner */}
       {statusMessage && (
-        <div className={`status-banner ${isError ? 'banner-error' : isScraping ? 'banner-scraping' : 'banner-success'}`}>
+        <div className={`studio-status-banner ${isError ? 'banner-error' : isScraping ? 'banner-scraping' : 'banner-success'}`}>
           <div className="banner-icon">
             {isError ? (
-              <AlertCircle size={18} />
+              <AlertCircle size={16} />
             ) : isScraping ? (
-              <Loader2 size={18} className="animate-spin" />
+              <Loader2 size={16} className="animate-spin" />
             ) : (
-              <CheckCircle2 size={18} />
+              <CheckCircle2 size={16} />
             )}
           </div>
-          <div className="banner-message">{statusMessage}</div>
+          <div className="banner-text">{statusMessage}</div>
+        </div>
+      )}
+
+      {/* Quick Database Actions Footer */}
+      {totalProducts > 0 && (
+        <div className="studio-footer-actions">
+          <button
+            type="button"
+            onClick={onClearAll}
+            disabled={isScraping}
+            className="btn-studio-clear"
+            title="Delete all products from MongoDB"
+          >
+            <Trash2 size={13} />
+            <span>Clear Entire Database ({totalProducts})</span>
+          </button>
         </div>
       )}
     </div>

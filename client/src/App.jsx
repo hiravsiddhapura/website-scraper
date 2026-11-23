@@ -4,9 +4,10 @@ import StatsDashboard from './components/StatsDashboard';
 import ScraperPanel from './components/ScraperPanel';
 import FilterBar from './components/FilterBar';
 import ProductCard from './components/ProductCard';
+import ProductTableView from './components/ProductTableView';
 import Pagination from './components/Pagination';
 import { getProducts, getStats, startScraper, deleteProduct, deleteAllProducts } from './services/api';
-import { Loader2, Inbox, Sparkles } from 'lucide-react';
+import { Loader2, Inbox, Sparkles, ArrowRight } from 'lucide-react';
 
 export default function App() {
   const [products, setProducts] = useState([]);
@@ -18,6 +19,10 @@ export default function App() {
   const [suggestedLinks, setSuggestedLinks] = useState([]);
   const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Layout states: Grid vs Table view, and Sidebar visibility
+  const [viewMode, setViewMode] = useState('grid');
+  const [showSidebar, setShowSidebar] = useState(true);
 
   // Pagination & Filtering state
   const [currentPage, setCurrentPage] = useState(1);
@@ -101,41 +106,45 @@ export default function App() {
     try {
       setIsScraping(true);
       setIsError(false);
-      setSuggestedLinks([]);
-      
-      const cleanActionMsg = options.clearExisting
-        ? `Wiping previous products & scraping ${options.url}...`
-        : `Analyzing & scraping ${options.url}...`;
-      setStatusMessage(cleanActionMsg);
+      setStatusMessage(
+        options.clearExisting
+          ? 'Clearing previous items & scraping live webpage...'
+          : 'Scraping live webpage...'
+      );
 
-      const response = await startScraper(options);
-      const summary = response.data;
+      const res = await startScraper(options);
 
-      if (summary.totalProductsFound === 0 && summary.suggestedLinks?.length > 0) {
-        setSuggestedLinks(summary.suggestedLinks);
+      if (res.success) {
+        const count = res.summary?.savedCount || res.summary?.itemsFound || 0;
+        const previousCleared = res.summary?.previousCleared ? ' (Previous items deleted)' : '';
         setStatusMessage(
-          `Scraped ${summary.website}, but no buyable cards were found directly on this page. Discovered category links below:`
+          `Extracted ${count} products from ${options.url}${previousCleared}`
         );
+
+        if (res.discoveredLinks && res.discoveredLinks.length > 0) {
+          setSuggestedLinks(res.discoveredLinks);
+        } else {
+          setSuggestedLinks([]);
+        }
+
+        // Refresh products list and stats
+        setCurrentPage(1);
+        await loadProducts();
+        await loadStats();
       } else {
-        const replaceNote = options.clearExisting ? ' (Previous items cleared)' : '';
-        setStatusMessage(
-          `Success! Scraped ${summary.website} (${summary.pageType}) via [${summary.extractionMethod}]. Extracted ${summary.totalProductsFound} item(s) in ${summary.durationSeconds}${replaceNote}.`
-        );
+        setIsError(true);
+        setStatusMessage(res.message || 'Scraping completed with warnings');
       }
-
-      // Reset to page 1 and reload
-      setCurrentPage(1);
-      await loadProducts();
-      await loadStats();
     } catch (err) {
+      console.error('Scrape job failed:', err);
       setIsError(true);
-      setStatusMessage(err.message || 'Scraper error occurred');
+      setStatusMessage(err.message || 'Error occurred while contacting scraping engine');
     } finally {
       setIsScraping(false);
     }
   };
 
-  // Handle Deleting Single Product
+  // Handle Deleting a Single Product
   const handleDeleteProduct = async (id, title) => {
     if (!window.confirm(`Are you sure you want to delete "${title}"?`)) {
       return;
@@ -178,10 +187,12 @@ export default function App() {
 
   return (
     <div className="app-layout">
-      {/* Sleek Top Navbar */}
+      {/* Sleek Top Navbar with Sidebar Toggle */}
       <Navbar
         isScraping={isScraping}
         totalProducts={totalProducts}
+        showSidebar={showSidebar}
+        onToggleSidebar={() => setShowSidebar(!showSidebar)}
         onRefresh={() => {
           loadProducts();
           loadStats();
@@ -190,69 +201,89 @@ export default function App() {
       />
 
       <main className="main-content">
-        {/* Statistics Metric Cards */}
-        <StatsDashboard stats={stats} activeCurrency={activeCurrency} />
+        <div className={`dashboard-layout ${!showSidebar ? 'sidebar-collapsed' : ''}`}>
+          {/* Left Column: Scraper Studio Sidebar */}
+          {showSidebar && (
+            <aside className="sidebar-studio">
+              <ScraperPanel
+                isScraping={isScraping}
+                onStartScrape={handleStartScrape}
+                onClearAll={handleClearAll}
+                totalProducts={totalProducts}
+                statusMessage={statusMessage}
+                isError={isError}
+                suggestedLinks={suggestedLinks}
+              />
+            </aside>
+          )}
 
-        {/* Universal Scraper Controls with Replace Toggle */}
-        <ScraperPanel
-          isScraping={isScraping}
-          onStartScrape={handleStartScrape}
-          onClearAll={handleClearAll}
-          totalProducts={totalProducts}
-          statusMessage={statusMessage}
-          isError={isError}
-          suggestedLinks={suggestedLinks}
-        />
+          {/* Right Column: Live Products Explorer */}
+          <section className="products-explorer">
+            {/* Sleek, Space-Saving Horizontal KPI Strip */}
+            {stats && (
+              <StatsDashboard stats={stats} activeCurrency={activeCurrency} compact={true} />
+            )}
 
-        {/* Search, Website, Brand, Type and Status Filters */}
-        <FilterBar
-          filters={filters}
-          totalItems={totalProducts}
-          availableWebsites={availableWebsites}
-          availableBrands={availableBrands}
-          onFilterChange={handleFilterChange}
-          onReset={handleResetFilters}
-        />
+            {/* Interactive Search, Dropdowns, and View Mode Toggle */}
+            <FilterBar
+              filters={filters}
+              totalItems={totalProducts}
+              availableWebsites={availableWebsites}
+              availableBrands={availableBrands}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onFilterChange={handleFilterChange}
+              onReset={handleResetFilters}
+            />
 
-        {/* Products Grid */}
-        <section className="products-section">
-          {isLoading ? (
-            <div className="loading-state">
-              <Loader2 size={38} className="animate-spin text-primary" />
-              <p>Loading products from MongoDB...</p>
-            </div>
-          ) : products.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">
-                <Inbox size={48} />
-              </div>
-              <h3>No Products in List</h3>
-              <p>
-                {filters.search || filters.sourceDomain || filters.brand || filters.rating || filters.pageType
-                  ? 'No items match your active search filters. Try clearing filters.'
-                  : 'Your database is currently empty. Paste any product link or click a preset above to extract items!'}
-              </p>
-            </div>
-          ) : (
-            <div className="products-grid">
-              {products.map((product) => (
-                <ProductCard
-                  key={product._id}
-                  product={product}
+            {/* Products Canvas - Immediately in view on load! */}
+            <div className="products-view-container">
+              {isLoading ? (
+                <div className="loading-state">
+                  <Loader2 size={36} className="animate-spin text-primary" />
+                  <p>Loading live products from MongoDB...</p>
+                </div>
+              ) : products.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-state-icon">
+                    <Inbox size={46} />
+                  </div>
+                  <h3>No Products Found</h3>
+                  <p>
+                    {filters.search || filters.sourceDomain || filters.brand || filters.rating || filters.inStock
+                      ? 'No items match your active filters. Try clearing search or filter selections.'
+                      : 'Your product list is currently empty. Enter any URL or choose a preset in the Studio to extract products!'}
+                  </p>
+                </div>
+              ) : viewMode === 'table' ? (
+                <ProductTableView
+                  products={products}
                   onDelete={handleDeleteProduct}
                 />
-              ))}
+              ) : (
+                <div className="products-grid">
+                  {products.map((product) => (
+                    <ProductCard
+                      key={product._id}
+                      product={product}
+                      onDelete={handleDeleteProduct}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </section>
 
-        {/* Pagination Navigation */}
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalProducts}
-          onPageChange={(page) => setCurrentPage(page)}
-        />
+            {/* Pagination Navigation */}
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalProducts}
+                onPageChange={(page) => setCurrentPage(page)}
+              />
+            )}
+          </section>
+        </div>
       </main>
     </div>
   );
