@@ -208,7 +208,6 @@ export default function App() {
               <ScraperPanel
                 isScraping={isScraping}
                 onStartScrape={handleStartScrape}
-                onClearAll={handleClearAll}
                 totalProducts={totalProducts}
                 statusMessage={statusMessage}
                 isError={isError}

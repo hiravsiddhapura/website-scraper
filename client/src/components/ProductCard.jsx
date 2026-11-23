@@ -10,11 +10,12 @@ export default function ProductCard({ product, onDelete }) {
   return (
     <article className="product-card">
       {/* Product Image Wrap with Badges */}
-      <div className="card-image-wrap">
+      <div className={`card-image-wrap ${product.category === 'LinkedIn Profile' ? 'avatar-wrap' : ''}`}>
         <img
           src={product.imageUrl}
           alt={product.title}
           loading="lazy"
+          className={product.category === 'LinkedIn Profile' ? 'avatar-img' : ''}
           onError={(e) => {
             e.target.src = 'https://placehold.co/400x500?text=No+Product+Image';
           }}
@@ -22,9 +23,11 @@ export default function ProductCard({ product, onDelete }) {
 
         {/* Top Badges */}
         <div className="card-top-badges">
-          <span className={`stock-badge ${product.inStock ? 'badge-in-stock' : 'badge-out-of-stock'}`}>
+          <span className={`stock-badge ${product.category === 'LinkedIn Profile' ? 'badge-in-stock' : product.inStock ? 'badge-in-stock' : 'badge-out-of-stock'}`}>
             <span className="stock-dot"></span>
-            {product.availability || (product.inStock ? 'In stock' : 'Out of stock')}
+            {product.category === 'LinkedIn Profile'
+              ? 'Active Member'
+              : product.availability || (product.inStock ? 'In stock' : 'Out of stock')}
           </span>
 
           {product.extractionSource && (
@@ -77,7 +80,11 @@ export default function ProductCard({ product, onDelete }) {
         {/* Card Footer: Price & Direct Actions */}
         <div className="card-footer">
           <div className="price-tag">
-            {product.price > 0 ? (
+            {product.category === 'LinkedIn Profile' ? (
+              <span className="domain-pill" style={{ color: '#0077b5', background: '#e8f4f9', fontWeight: 700 }}>
+                💼 Member Profile
+              </span>
+            ) : product.price > 0 ? (
               <>
                 <span className="currency">{product.currency || '$'}</span>
                 <span className="amount">
@@ -95,9 +102,9 @@ export default function ProductCard({ product, onDelete }) {
               target="_blank"
               rel="noopener noreferrer"
               className="action-btn link-btn"
-              title="Open product on original website"
+              title="Open link in browser"
             >
-              <span>Visit</span>
+              <span>{product.category === 'LinkedIn Profile' ? 'View' : 'Visit'}</span>
               <ExternalLink size={13} />
             </a>
 

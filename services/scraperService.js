@@ -8,6 +8,7 @@ const {
   extractSingleProductHeuristic,
   extractCatalogHeuristic
 } = require('./extractors/heuristicExtractor');
+const { fetchLinkedInMember } = require('./linkedinService');
 const {
   cleanText,
   parsePrice,
@@ -353,6 +354,28 @@ const scrapeAndSaveToDatabase = async ({
   if (clearExisting) {
     console.log(`🧹 Clearing existing products from database...`);
     await Product.deleteMany({});
+  }
+
+  // Handle LinkedIn Profile URLs via Option 1 (Dedicated Profile API)
+  if (startUrl.toLowerCase().includes('linkedin.com')) {
+    console.log(`💼 Routing to LinkedIn Profile Extractor: ${startUrl}`);
+    const member = await fetchLinkedInMember(startUrl);
+    await saveProductsToDatabase([member]);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    return {
+      products: [member],
+      summary: {
+        totalProductsFound: 1,
+        totalNewInserted: 1,
+        totalPagesScraped: 1,
+        durationSeconds: duration,
+        status: 'completed',
+        dominantExtractionMethod: member.extractionSource,
+        dominantPageType: 'detail',
+        previousCleared: clearExisting
+      },
+      discoveredLinks: []
+    };
   }
 
   while (currentUrl) {
