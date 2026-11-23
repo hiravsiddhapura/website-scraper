@@ -114,7 +114,7 @@ export default function ScraperPanel({
           </div>
           <span className="studio-pill">Universal Engine</span>
         </div>
-        <h2 className="studio-heading">Extract Any Website</h2>
+        <h2 className="studio-heading">Extract </h2>
         <p className="studio-subtext">
           Enter any e-commerce link or select a preset to extract live products instantly.
         </p>
@@ -233,12 +233,12 @@ export default function ScraperPanel({
         <button
           type="submit"
           disabled={isScraping || !url.trim()}
-          className="btn-studio-extract"
+          className={`btn-studio-extract ${isScraping ? 'is-loading' : ''}`}
         >
           {isScraping ? (
             <>
               <Loader2 size={18} className="animate-spin" />
-              <span>Scraping Pipeline Active...</span>
+              <span>Extracting Live Data...</span>
             </>
           ) : (
             <>

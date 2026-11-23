@@ -230,6 +230,22 @@ body {
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
 }
 
+/* Continuous smooth rotation for all spinners (prevents freeze appearance) */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 0.75s linear infinite !important;
+  display: inline-block;
+  transform-origin: center;
+}
+
 .btn-secondary {
   display: flex;
   align-items: center;
@@ -587,9 +603,20 @@ body {
 }
 
 .btn-studio-extract:disabled {
-  opacity: 0.65;
+  opacity: 0.75;
   cursor: not-allowed;
   transform: none;
+}
+
+.btn-studio-extract.is-loading {
+  background: linear-gradient(90deg, #4f46e5 0%, #6366f1 50%, #4338ca 100%);
+  background-size: 200% 100%;
+  animation: shimmer-load 2s linear infinite;
+}
+
+@keyframes shimmer-load {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* Advanced Accordion */
@@ -1502,6 +1529,76 @@ body {
 /* ==========================================================================
    6. States (Loading, Empty) & Pagination
    ========================================================================== */
+.scraping-active-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+  gap: 12px;
+}
+
+.active-radar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  box-shadow: 0 0 0 10px rgba(79, 70, 229, 0.08);
+  animation: radar-pulse 1.8s infinite ease-out;
+}
+
+@keyframes radar-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.25); }
+  70% { box-shadow: 0 0 0 18px rgba(79, 70, 229, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+}
+
+.scraping-active-state h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.scraping-active-state p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 420px;
+}
+
+.loading-progress-bar {
+  width: 220px;
+  height: 6px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-top: 8px;
+  position: relative;
+}
+
+.loading-progress-fill {
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--violet) 100%);
+  border-radius: var(--radius-full);
+  position: absolute;
+  animation: progress-slide 1.5s infinite ease-in-out;
+}
+
+@keyframes progress-slide {
+  0% { left: -50%; width: 30%; }
+  50% { left: 25%; width: 60%; }
+  100% { left: 100%; width: 30%; }
+}
+
 .loading-state {
   display: flex;
   flex-direction: column;

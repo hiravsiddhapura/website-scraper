@@ -99,67 +99,158 @@ const extractCardTitle = ($, el) => {
 };
 
 /**
+ * Checks whether an img element is a decorative badge, review star, or icon
+ * instead of an actual product photo
+ */
+const isBadgeOrIcon = ($, img) => {
+  const src = (
+    $(img).attr('src') ||
+    $(img).attr('data-src') ||
+    $(img).attr('srcset') ||
+    ''
+  ).toLowerCase();
+  const cls = ($(img).attr('class') || '').toLowerCase();
+  const parentCls = ($(img).parent().attr('class') || '').toLowerCase();
+  const alt = ($(img).attr('alt') || '').toLowerCase();
+  const width = parseInt($(img).attr('width'), 10);
+  const height = parseInt($(img).attr('height'), 10);
+
+  // Tiny icons/stickers (e.g. 20x20 star, 29x29 personalization button)
+  if (width > 0 && width <= 50 && height > 0 && height <= 50) return true;
+
+  const blacklist = [
+    'star',
+    'icon',
+    'personalisation',
+    'personalization',
+    'offer',
+    'mask_group',
+    'badge',
+    'logo',
+    'pixel',
+    'review',
+    'trust',
+    'guarantee',
+    'payment',
+    'flag',
+    'arrow'
+  ];
+
+  return blacklist.some((b) =>
+    src.includes(b) || cls.includes(b) || parentCls.includes(b) || (alt.includes(b) && !alt.includes('product'))
+  );
+};
+
+/**
+ * Robustly parses the cleanest, highest-resolution image URL from an img element's
+ * various standard, lazy-load, and srcset attributes
+ */
+const extractBestImageUrl = ($, imgEl) => {
+  if (!imgEl || !imgEl.length) return '';
+
+  const getCleanCandidate = (str) => {
+    if (!str || typeof str !== 'string') return '';
+    const trimmed = str.trim();
+    if (!trimmed || trimmed.startsWith('data:image/svg') || trimmed.includes('spacer.gif') || trimmed.includes('1x1.')) {
+      return '';
+    }
+    // Handle srcset string with comma-separated entries or whitespace width descriptors
+    if (trimmed.includes(',') || /\s+\d+[wx]/.test(trimmed)) {
+      const parts = trimmed.split(',').map((p) => p.trim()).filter(Boolean);
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const u = parts[i].split(/\s+/)[0];
+        if (u && !u.startsWith('data:image/svg') && u.startsWith('http')) return u;
+      }
+      for (const p of parts) {
+        const u = p.split(/\s+/)[0];
+        if (u && !u.startsWith('data:image/svg')) return u;
+      }
+    }
+    return trimmed.split(/\s+/)[0];
+  };
+
+  const attrs = [
+    'bv-img-url',
+    'data-src',
+    'data-lazy-src',
+    'data-original',
+    'src',
+    'bv-orig-srcset',
+    'data-srcset',
+    'srcset'
+  ];
+
+  for (const attr of attrs) {
+    const val = getCleanCandidate(imgEl.attr(attr));
+    if (val && !val.startsWith('data:')) {
+      return val;
+    }
+  }
+
+  return (imgEl.attr('src') || '').trim();
+};
+
+/**
  * Extracts product image from card, prioritizing primary product images
  * and filtering out decorative badges, review stars, and tracking pixels
  */
 const extractCardImage = ($, el, currentUrl) => {
-  let imgEl = $(el)
-    .find(
-      'img.s-image, img[class*="primary"], [class*="image-wrapper"] img, [class*="product-image"] img, .aspect-ratio img, .thumbnail img'
-    )
-    .first();
+  // 1. Explicit primary / featured / product image classes (evaluated individually in order)
+  const primarySelectors = [
+    'img[class*="primary"]',
+    'img[class*="main"]',
+    'img.s-image',
+    'img[class*="featured"]',
+    '.product-item__aspect-ratio img',
+    '.aspect-ratio img',
+    '[class*="product-image"] img',
+    '[class*="image-wrapper"] img',
+    '.thumbnail img'
+  ];
 
-  if (!imgEl.length) {
-    imgEl = $(el)
-      .find('img')
-      .filter((_, img) => {
-        const src = (
-          $(img).attr('src') ||
-          $(img).attr('data-src') ||
-          $(img).attr('bv-img-url') ||
-          $(img).attr('data-lazy-src') ||
-          ''
-        ).toLowerCase();
-        return (
-          src.length > 0 &&
-          !src.includes('star') &&
-          !src.includes('icon') &&
-          !src.includes('label') &&
-          !src.includes('mask_group') &&
-          !src.includes('badge') &&
-          !src.includes('logo') &&
-          !src.includes('pixel')
-        );
-      })
-      .first();
+  let selectedImg = null;
+
+  for (const sel of primarySelectors) {
+    const candidates = $(el).find(sel);
+    for (let i = 0; i < candidates.length; i++) {
+      const img = candidates[i];
+      if (!isBadgeOrIcon($, img)) {
+        selectedImg = $(img);
+        break;
+      }
+    }
+    if (selectedImg) break;
   }
 
-  if (!imgEl.length) {
-    imgEl = $(el).find('img').first();
+  // 2. Fallback: Any valid non-badge img inside card
+  if (!selectedImg) {
+    const allImgs = $(el).find('img');
+    for (let i = 0; i < allImgs.length; i++) {
+      const img = allImgs[i];
+      if (!isBadgeOrIcon($, img)) {
+        selectedImg = $(img);
+        break;
+      }
+    }
   }
 
-  // Priority for real URLs over data:image/svg lazy-load placeholders
-  let rawImg =
-    imgEl.attr('bv-img-url') ||
-    imgEl.attr('data-src') ||
-    imgEl.attr('data-lazy-src') ||
-    imgEl.attr('data-original') ||
-    imgEl.attr('bv-orig-srcset')?.split(' ')[0] ||
-    imgEl.attr('data-srcset')?.split(' ')[0] ||
-    imgEl.attr('srcset')?.split(' ')[0] ||
-    imgEl.attr('src');
-
-  if (rawImg && rawImg.startsWith('data:image/svg')) {
-    rawImg =
-      imgEl.attr('bv-img-url') ||
-      imgEl.attr('data-src') ||
-      imgEl.attr('data-lazy-src') ||
-      imgEl.attr('bv-orig-srcset')?.split(' ')[0] ||
-      imgEl.attr('data-srcset')?.split(' ')[0] ||
-      imgEl.attr('srcset')?.split(' ')[0];
+  if (!selectedImg) {
+    selectedImg = $(el).find('img').first();
   }
 
-  return resolveUrl(rawImg, currentUrl);
+  const rawUrl = extractBestImageUrl($, selectedImg);
+  if (!rawUrl || rawUrl === currentUrl || rawUrl.length < 5) {
+    return '';
+  }
+
+  const resolved = resolveUrl(rawUrl, currentUrl);
+  const normalizedCurrent = currentUrl.replace(/\/$/, '');
+  const normalizedResolved = resolved.replace(/\/$/, '');
+  if (normalizedResolved === normalizedCurrent) {
+    return '';
+  }
+
+  return resolved;
 };
 
 /**
@@ -249,6 +340,8 @@ const extractSingleProductHeuristic = ($, currentUrl) => {
   const heroImageSelectors = [
     '#product_gallery img',
     '.item.active img',
+    'img[class*="primary"]',
+    'img[class*="main"]',
     '[class*="product-image"] img',
     '[class*="gallery"] img',
     '[class*="featured-image"] img',
@@ -259,16 +352,21 @@ const extractSingleProductHeuristic = ($, currentUrl) => {
   ];
 
   for (const selector of heroImageSelectors) {
-    const imgEl = $(selector).first();
-    const src =
-      imgEl.attr('src') ||
-      imgEl.attr('data-src') ||
-      imgEl.attr('data-zoom-image') ||
-      imgEl.attr('srcset')?.split(' ')[0];
-    if (src && !src.includes('logo') && !src.includes('icon')) {
-      imageUrl = resolveUrl(src, currentUrl);
-      break;
+    const candidates = $(selector);
+    for (let i = 0; i < candidates.length; i++) {
+      const img = candidates[i];
+      if (!isBadgeOrIcon($, img)) {
+        const raw = extractBestImageUrl($, $(img));
+        if (raw && raw !== currentUrl) {
+          const resolved = resolveUrl(raw, currentUrl);
+          if (resolved.replace(/\/$/, '') !== currentUrl.replace(/\/$/, '')) {
+            imageUrl = resolved;
+            break;
+          }
+        }
+      }
     }
+    if (imageUrl) break;
   }
 
   // 4. Cart / Purchase Button

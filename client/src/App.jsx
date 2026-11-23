@@ -237,7 +237,18 @@ export default function App() {
 
             {/* Products Canvas - Immediately in view on load! */}
             <div className="products-view-container">
-              {isLoading ? (
+              {isScraping ? (
+                <div className="scraping-active-state">
+                  <div className="active-radar">
+                    <Loader2 size={44} className="animate-spin text-primary" />
+                  </div>
+                  <h3>Extracting Live Webpage Data...</h3>
+                  <p>Connecting to target server, resolving images, and parsing fields.</p>
+                  <div className="loading-progress-bar">
+                    <div className="loading-progress-fill"></div>
+                  </div>
+                </div>
+              ) : isLoading ? (
                 <div className="loading-state">
                   <Loader2 size={36} className="animate-spin text-primary" />
                   <p>Loading live products from MongoDB...</p>
