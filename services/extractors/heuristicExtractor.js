@@ -116,6 +116,7 @@ const extractCardImage = ($, el, currentUrl) => {
         const src = (
           $(img).attr('src') ||
           $(img).attr('data-src') ||
+          $(img).attr('bv-img-url') ||
           $(img).attr('data-lazy-src') ||
           ''
         ).toLowerCase();
@@ -137,12 +138,26 @@ const extractCardImage = ($, el, currentUrl) => {
     imgEl = $(el).find('img').first();
   }
 
-  const rawImg =
-    imgEl.attr('src') ||
+  // Priority for real URLs over data:image/svg lazy-load placeholders
+  let rawImg =
+    imgEl.attr('bv-img-url') ||
     imgEl.attr('data-src') ||
     imgEl.attr('data-lazy-src') ||
+    imgEl.attr('data-original') ||
+    imgEl.attr('bv-orig-srcset')?.split(' ')[0] ||
+    imgEl.attr('data-srcset')?.split(' ')[0] ||
     imgEl.attr('srcset')?.split(' ')[0] ||
-    imgEl.attr('data-srcset')?.split(' ')[0];
+    imgEl.attr('src');
+
+  if (rawImg && rawImg.startsWith('data:image/svg')) {
+    rawImg =
+      imgEl.attr('bv-img-url') ||
+      imgEl.attr('data-src') ||
+      imgEl.attr('data-lazy-src') ||
+      imgEl.attr('bv-orig-srcset')?.split(' ')[0] ||
+      imgEl.attr('data-srcset')?.split(' ')[0] ||
+      imgEl.attr('srcset')?.split(' ')[0];
+  }
 
   return resolveUrl(rawImg, currentUrl);
 };
@@ -330,6 +345,10 @@ const extractCatalogHeuristic = ($, currentUrl) => {
   const seenUrls = new Set();
 
   const candidateSelectors = [
+    'li.product',
+    '.type-product',
+    'ul.products > li',
+    '.product.type-product',
     'div[data-component-type="s-search-result"]',
     '[data-asin]:has(img):has(a)',
     'article.product_pod',
@@ -448,10 +467,20 @@ const extractCatalogHeuristic = ($, currentUrl) => {
       $(el).find('a').first().attr('href');
     const productUrl = resolveUrl(relativeUrl, currentUrl);
 
-    // Extract price
-    const priceText = cleanText(
-      $(el).find('.a-price .a-offscreen, .a-price-whole, .price_color, [class*="price"], .amount, [data-price], [itemprop="price"]').first().text()
-    );
+    // Extract price (prioritize explicit price tags; ignore discount/save/off percentage badges)
+    let priceEl = $(el)
+      .find('.price, .woocommerce-Price-amount, .amount, .price_color, .a-price .a-offscreen, .a-price-whole, [itemprop="price"]')
+      .not('[class*="off"], [class*="discount"], [class*="save"], .sale-price-off')
+      .first();
+
+    if (!priceEl.length) {
+      priceEl = $(el)
+        .find('[class*="price"], [data-price]')
+        .not('[class*="off"], [class*="discount"], [class*="save"], .sale-price-off')
+        .first();
+    }
+
+    const priceText = cleanText(priceEl.text());
     const price = parsePrice(priceText);
     const currency = parseCurrency(priceText);
 

@@ -68,15 +68,29 @@ const fetchPageHtml = async (url) => {
 const detectPageType = ($, url) => {
   const lowercaseUrl = url.toLowerCase();
 
-  // If there are multiple product cards (>= 3), it's definitely a listing/catalog page
+  // 1. High-confidence multi-card catalog count (Shopify, WooCommerce, Amazon, custom)
   const multiCardCount = $(
-    'article.product_pod, [class*="product-card"], [class*="product-item"], .thumbnail, div[data-component-type="s-search-result"], [data-asin]:has(img):has(a)'
+    'li.product, .type-product, ul.products > li, .product.type-product, article.product_pod, [class*="product-card"], [class*="product-item"], [class*="product-grid-item"], .thumbnail:has(a), div[data-component-type="s-search-result"], [data-asin]:has(img):has(a)'
   ).length;
-  if (multiCardCount >= 3) {
+
+  if (multiCardCount >= 2) {
     return 'listing';
   }
 
-  // If single product container exists
+  // 2. High-confidence Catalog URL patterns (e.g. /product-category/, /collections/, /category/, /shop/)
+  if (
+    lowercaseUrl.includes('collection') ||
+    lowercaseUrl.includes('category') ||
+    lowercaseUrl.includes('product-category') ||
+    lowercaseUrl.includes('/catalog') ||
+    lowercaseUrl.includes('/shop') ||
+    lowercaseUrl.includes('/search') ||
+    lowercaseUrl.includes('/page-')
+  ) {
+    return 'listing';
+  }
+
+  // 3. Single product container checks
   if (
     $(
       'article.product_page, .product-main, .product_main, .product-single, #product-details, [itemtype*="Product"]'
@@ -85,7 +99,7 @@ const detectPageType = ($, url) => {
     return 'detail';
   }
 
-  // URL hints for single product
+  // 4. URL hints for single product
   if (
     /\/\w+[\-_]\d+\/index\.html/.test(lowercaseUrl) ||
     lowercaseUrl.includes('/product/') ||
@@ -98,18 +112,7 @@ const detectPageType = ($, url) => {
     return 'detail';
   }
 
-  // URL hints for catalog
-  if (
-    lowercaseUrl.includes('/collection') ||
-    lowercaseUrl.includes('/category') ||
-    lowercaseUrl.includes('/search') ||
-    lowercaseUrl.includes('/shop') ||
-    lowercaseUrl.includes('/page-')
-  ) {
-    return 'listing';
-  }
-
-  // Check for prominent H1 and Add to Cart button
+  // 5. Check for prominent H1 and Add to Cart button
   const hasCartBtn =
     $('button, a, input[type="submit"]').filter((_, el) => {
       const text = ($(el).text() || $(el).val() || '').toLowerCase();
